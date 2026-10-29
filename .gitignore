@@ -1,6 +1,7 @@
-@"
 node_modules/
 .next/
+out/
+.vercel/
 .env*
+!.env.example
 *.tsbuildinfo
-"@ | Out-File -Encoding utf8 .gitignore

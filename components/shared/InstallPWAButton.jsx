@@ -22,16 +22,24 @@ export default function InstallPWAButton() {
       event.preventDefault();
       setInstallPrompt(event);
     };
+    const handleCapturedInstallAvailable = () => {
+      if (window.__stockProInstallPrompt) {
+        setInstallPrompt(window.__stockProInstallPrompt);
+      }
+    };
     const handleInstalled = () => {
       setInstalled(true);
       setInstallPrompt(null);
       setMessage('StockPro quedó instalada en este dispositivo.');
     };
 
+    handleCapturedInstallAvailable();
+    window.addEventListener('stockproinstallprompt', handleCapturedInstallAvailable);
     window.addEventListener('beforeinstallprompt', handleInstallAvailable);
     window.addEventListener('appinstalled', handleInstalled);
 
     return () => {
+      window.removeEventListener('stockproinstallprompt', handleCapturedInstallAvailable);
       window.removeEventListener('beforeinstallprompt', handleInstallAvailable);
       window.removeEventListener('appinstalled', handleInstalled);
     };
@@ -48,6 +56,7 @@ export default function InstallPWAButton() {
       console.error('No se pudo iniciar la instalación de StockPro:', error);
       setMessage('El navegador no pudo iniciar la instalación. Usa las instrucciones de abajo.');
     } finally {
+      window.__stockProInstallPrompt = null;
       setInstallPrompt(null);
     }
   };
