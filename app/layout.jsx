@@ -43,7 +43,7 @@ export default function RootLayout({ children }) {
         </Script>
         <AppProvider>
           <Sidebar />
-          <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-28 pt-6 sm:px-6 md:px-8 md:py-8">
+          <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-28 pt-20 sm:px-6 md:px-8 md:py-8">
             {children}
           </main>
           <InstallPWAButton />

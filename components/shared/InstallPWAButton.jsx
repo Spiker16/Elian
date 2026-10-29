@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 export default function InstallPWAButton() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installed, setInstalled] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState('desktop');
   const [secureContext, setSecureContext] = useState(true);
@@ -12,7 +13,9 @@ export default function InstallPWAButton() {
 
   useEffect(() => {
     const userAgent = navigator.userAgent;
-    setPlatform(/iPad|iPhone|iPod/.test(userAgent) ? 'ios' : /Android/i.test(userAgent) ? 'android' : 'desktop');
+    const isAppleMobile = /iPad|iPhone|iPod/.test(userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setPlatform(isAppleMobile ? 'ios' : /Android/i.test(userAgent) ? 'android' : 'desktop');
     setSecureContext(window.isSecureContext);
     setEmbeddedBrowser(/(?:\bCode\/|Visual Studio Code|Electron\/)/i.test(userAgent));
     setInstalled(
@@ -32,6 +35,7 @@ export default function InstallPWAButton() {
     const handleInstalled = () => {
       setInstalled(true);
       setInstallPrompt(null);
+      setShowInstructions(false);
       setMessage('StockPro quedó instalada en este dispositivo.');
     };
 
@@ -48,99 +52,82 @@ export default function InstallPWAButton() {
   }, []);
 
   const install = async () => {
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      setShowInstructions((visible) => !visible);
+      return;
+    }
 
     try {
       await installPrompt.prompt();
       const { outcome } = await installPrompt.userChoice;
-      setMessage(outcome === 'accepted' ? 'Instalación iniciada.' : 'La instalación fue cancelada.');
+      if (outcome === 'accepted') {
+        setMessage('Instalación iniciada.');
+      } else {
+        setMessage('La instalación fue cancelada.');
+      }
     } catch (error) {
       console.error('No se pudo iniciar la instalación de StockPro:', error);
-      setMessage('El navegador no pudo iniciar la instalación. Usa las instrucciones de abajo.');
+      setMessage('No se pudo abrir el instalador. Inténtalo desde el menú de instalación del navegador.');
+      setShowInstructions(true);
     } finally {
       window.__stockProInstallPrompt = null;
       setInstallPrompt(null);
     }
   };
 
-  const copyAppLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.origin);
-      setMessage('Enlace copiado. Pégalo en Chrome o Edge para instalar la aplicación.');
-    } catch (error) {
-      console.error('No se pudo copiar el enlace de StockPro:', error);
-      setMessage(`Abre esta dirección en Chrome o Edge: ${window.location.origin}`);
-    }
-  };
-
   return (
-    <div className="fixed right-4 top-4 z-[60] w-[min(22rem,calc(100vw-2rem))] text-sm">
-      {installPrompt ? (
-        <button
-          type="button"
-          onClick={install}
-          className="ml-auto flex w-fit items-center gap-2 rounded-full border border-blue-400/40 bg-blue-600 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-950/30 hover:bg-blue-500"
-        >
-          <span aria-hidden="true">↓</span>
-          Instalar StockPro
-        </button>
-      ) : (
-        <details>
-          <summary className="ml-auto flex w-fit cursor-pointer list-none items-center gap-2 rounded-full border border-blue-400/40 bg-slate-900 px-4 py-2 font-semibold text-blue-200 shadow-lg hover:bg-slate-800">
-            <span aria-hidden="true">↓</span>
-            {installed ? 'App instalada' : 'Cómo instalar'}
-          </summary>
-          <div className="mt-2 space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-4 text-slate-200 shadow-xl">
-            <p className="font-semibold text-white">Instala StockPro en tu dispositivo</p>
-            {installed ? (
-              <p>La aplicación ya está instalada. Puedes abrirla desde tu pantalla de inicio o menú de aplicaciones.</p>
-            ) : embeddedBrowser ? (
-              <>
-                <p>
-                  Estás viendo StockPro dentro de una ventana integrada de VS Code. Esa ventana no permite instalar aplicaciones web.
-                  Ábrela en Chrome o Edge para instalarla.
-                </p>
-                <button
-                  type="button"
-                  onClick={copyAppLink}
-                  className="w-full rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-500"
-                >
-                  Copiar enlace para Chrome o Edge
-                </button>
-              </>
-            ) : platform === 'ios' ? (
-              <p>En Safari, toca <strong>Compartir</strong> y luego <strong>Añadir a pantalla de inicio</strong>. iOS no muestra un botón de instalación dentro de la página.</p>
-            ) : platform === 'android' ? (
-              <p>En Chrome, abre el menú <strong>⋮</strong> y elige <strong>Instalar aplicación</strong> o <strong>Añadir a pantalla de inicio</strong>. La opción aparece en el menú del navegador.</p>
-            ) : (
-              <>
-                <p>
-                  Si Chrome o Edge no ofrece un instalador automático, abre su menú y selecciona <strong>Instalar página como aplicación</strong> (Chrome) o <strong>Aplicaciones → Instalar este sitio como una aplicación</strong> (Edge).
-                </p>
-                <button
-                  type="button"
-                  onClick={copyAppLink}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 font-semibold text-slate-100 hover:bg-slate-700"
-                >
-                  Copiar enlace de StockPro
-                </button>
-              </>
-            )}
-            {!installed && !secureContext && (
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200">
-                Para instalarla, publica la aplicación con HTTPS o ábrela en <strong>localhost</strong>. Una dirección HTTP de red local no es suficiente.
+    <div className="fixed right-3 top-3 z-[60] w-[min(22rem,calc(100vw-1.5rem))] text-sm sm:right-4 sm:top-4 sm:w-[min(22rem,calc(100vw-2rem))]">
+      <button
+        type="button"
+        onClick={install}
+        disabled={installed}
+        className="ml-auto flex min-h-11 w-fit items-center justify-center gap-2 rounded-full border border-blue-300/50 bg-blue-600 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300 disabled:cursor-default disabled:border-emerald-400/30 disabled:bg-emerald-700 disabled:text-emerald-50"
+      >
+        <span aria-hidden="true">{installed ? '✓' : '↓'}</span>
+        {installed ? 'App instalada' : 'Instalar StockPro'}
+      </button>
+
+      {showInstructions && !installed && (
+        <div className="mt-2 max-h-[min(70vh,28rem)] space-y-3 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-4 text-slate-200 shadow-xl">
+          {embeddedBrowser ? (
+            <>
+              <p className="font-semibold text-white">Abre StockPro en un navegador</p>
+              <p>
+                Esta ventana integrada de VS Code no permite instalar aplicaciones. El botón instalará la app directamente cuando abras este sitio en Chrome o Edge.
               </p>
-            )}
-            {message && <p role="status" className="text-blue-200">{message}</p>}
-            {!installed && !embeddedBrowser && (
-              <p className="text-xs text-slate-400">
-                La instalación se inicia desde Chrome, Edge o Safari; la página no descarga un instalador de escritorio.
-              </p>
-            )}
-          </div>
-        </details>
+            </>
+          ) : platform === 'ios' ? (
+            <>
+              <p className="font-semibold text-white">Añadir StockPro a inicio</p>
+              <p>En Safari, toca <strong>Compartir</strong> y luego <strong>Añadir a pantalla de inicio</strong>. iOS no permite iniciar esta instalación desde un botón de la página.</p>
+            </>
+          ) : platform === 'android' ? (
+            <>
+              <p className="font-semibold text-white">Instalación no disponible desde este navegador</p>
+              <p>Abre StockPro en Chrome. Si Chrome no ofrece el instalador automático, usa <strong>⋮ → Instalar aplicación</strong> o <strong>Añadir a pantalla de inicio</strong>.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-white">Instalación no disponible desde este navegador</p>
+              <p>El navegador no habilitó el instalador automático. En Chrome usa <strong>⋮ → Guardar y compartir → Instalar página como aplicación</strong>; en Edge usa <strong>⋯ → Aplicaciones → Instalar este sitio como una aplicación</strong>.</p>
+            </>
+          )}
+          {!secureContext && (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200">
+              La instalación requiere HTTPS o abrir el sitio en <strong>localhost</strong>.
+            </p>
+          )}
+          {message && <p role="status" className="text-blue-200">{message}</p>}
+          <button
+            type="button"
+            onClick={() => setShowInstructions(false)}
+            className="rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+          >
+            Cerrar
+          </button>
+        </div>
       )}
-      {message && installPrompt && <p role="status" className="mt-2 text-right text-xs text-blue-200">{message}</p>}
+      {message && !showInstructions && <p role="status" className="mt-2 text-right text-xs text-blue-200">{message}</p>}
     </div>
   );
 }
